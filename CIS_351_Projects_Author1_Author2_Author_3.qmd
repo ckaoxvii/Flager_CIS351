@@ -1,0 +1,209 @@
+---
+title: "Student Demographics and Final Grades"
+subtitle: "CIS 351 Final Project"
+author:
+    - name: Author 1
+    - name: Author 2
+    - name: Author 3
+format: 
+    html:
+        embed-resources: true
+toc: true
+editor_options: 
+  chunk_output_type: console
+---
+
+## Introduction
+
+Say something (intelligent) about your dataset. Which variables are of interest to you and how they lead you to form the research questions.
+
+You must have exactly two research questions.
+
+## Loading packages and data
+
+```{r}
+#| message: false
+
+library(tidyverse)
+
+library(janitor)
+
+library(ucimlrepo)
+
+library(ggpubr)
+
+library(car)
+
+library(skimr)
+
+library(gt)
+
+uci_df <- fetch_ucirepo(name = 'Student Performance')
+
+df <- uci_df$data$original |> 
+    clean_names()
+```
+
+## Exploratory Data Analysis Using `skim()`
+
+```{r}
+skim(df)
+```
+
+## Research Questions
+
+1. Is there a difference in the mean final scores between students from urban areas and those from rural areas?
+
+2. Assume that `studytime` and the final score (`g3`) are continuous numeric variables. Are these two variables correlated?
+
+
+## Examine variables of interest
+
+### Question 1
+
+The variables of interest are `address` and `g3`.
+
+For `address` is a binary categorical variable. We can use the `summarize()` to create a table of counts by address type (i.e., `U` or `R`).
+
+```{r}
+df_rows <- nrow(df)
+
+df |> 
+    summarize(
+        count = n(),
+        percent = round(count/df_rows*100, 1),
+        .by = address
+    ) |> 
+    gt()
+```
+
+Table shows that 197 students have rural addresses and 452 with urban addresses.
+
+The second variable of interest is `g3`, which is a numeric variable. We can use the `summary()` function to create a five-number summary for `g3`.
+
+```{r}
+summary(df$g3) 
+```
+
+The mean and median are roughly equal, so it's likely that `g3` (final score) is symmetric.
+
+We can create a two-way to look at the distributions of final scores (`g3`) by `address` using the `tabyl()` function.
+
+```{r}
+df |> 
+    tabyl(address, g3) |> 
+    gt()
+```
+
+### Question 2
+
+The variable `g3` was discussed above, so we will proceed with the discussion of `studytime`.
+
+```{r}
+summary(df$studytime)
+```
+Note that the median and the mean for `studytime` are similar, but the histogram from `skim()` tells us that the distribution of the variable is not symmetric.
+
+## Data visualizations
+
+### Question 1
+
+Since `g3` is a numeric variable, a histogram is an appropriate visualization.
+
+```{r}
+df |> 
+    ggplot(
+        aes(x = g3)
+    ) +
+    geom_histogram(
+        fill = '#A90533',
+        color = 'white'
+    ) +
+    theme_classic() +
+    labs(
+        title = 'Final Scores',
+        x = 'Final Score (out of 20)',
+        y = 'Count'
+    )
+```
+
+To visualize the final scores by `address` type, we use the boxplot.
+
+
+```{r}
+df |> 
+    ggplot(
+        aes(
+            x = address,
+            y = g3,
+            fill = address
+        )
+    ) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(
+        title = 'Final Scores by Address Type',
+        x = 'Address Type',
+        y = 'Final Scores'
+    ) +
+    scale_fill_manual(values = c('#A90533', '#FFB500')) #manually change the colors of the boxes; #A90533 and #FFB500 are the official primary colors of Flagler College
+```
+Observe that both groups have outliers. the distributions of the groups are not similar. 
+
+### Question 2
+
+Since `studytime` and `g3` are both continuous and numeric under the assumption made in the research questions section. The appropriate visualization for this question is the scatter plot.
+
+```{r}
+ggscatter(
+    df,
+    x = 'studytime',
+    y = 'g3',
+    add = 'reg.line',
+    add.params = list(color = 'blue'),
+    xlab = 'Study Time (Hours)',
+    ylab = 'Final Score'
+) +
+    stat_cor(
+        label.x = 1,
+        label.y = 25
+    ) +
+    stat_regline_equation(
+        label.x = 1,
+        label.y = 22,
+    )
+```
+
+
+
+## Statistical tests
+
+### Question 1
+
+Since sample sizes are sufficiently large, we can use the $t$-test. However, the variable type for final scores is discrete and numerical, we should ultimately use the rank-sum test.
+
+$H_0$: $\mu_R = \mu_U$ <br>
+$H_a$: $\mu_R \ne \mu_U$
+
+```{r}
+test_1 <- t.test(
+    g3 ~ address,
+    data = df
+)
+
+test_1
+```
+The $p$-value is $p = `{r} test_1$p.value` < 0.05$, so we reject the null hypothesis that the mean final scores are the same.
+
+### Question 2
+
+Note that `ggpubr` gave us the necessary statistical outputs for the regression analysis between `studytime` and final score (`g3`). We have the $p$-value of $p = 1.1 \times 10^{-10} < 0.05$. The correlation coefficient $R = 0.25$ with the regression equation $y = 10 + 0.97x$, where $x$ is `studytime` and $y$ is the final score (`g3`).
+
+## Conclusion
+
+Say something about your research questions and the results from your statistical tests.
+
+
+
+
+
